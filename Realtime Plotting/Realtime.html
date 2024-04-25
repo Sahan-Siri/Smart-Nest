@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Real-time Line Graph with Firebase</title>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+<canvas id="lineChart" width="800" height="400"></canvas>
+
+<script>
+    // Firebase configuration
+    const firebaseConfig = {
+        apiKey: "AIzaSyAKF2apBkqBW3pKeMt0GMj2MXmkSoebQks",
+        authDomain: "smartnest0.firebaseapp.com",
+        databaseURL: "https://smartnest0-default-rtdb.firebaseio.com",
+        projectId: "smartnest0",
+        storageBucket: "smartnest0.appspot.com",
+        messagingSenderId: "886642585119",
+        appId: "1:886642585119:web:106ed37f1ac61fff4e6f2a",
+    };
+
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+
+    // Reference to your Firebase database
+    const database = firebase.database().ref('data');
+
+    // Initialize Chart.js
+    const ctx = document.getElementById('lineChart').getContext('2d');
+    const lineChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Data',
+                data: [],
+                borderColor: 'rgba(75,192,192,1)',
+                fill: false
+            }]
+        },
+        options: {
+            scales: {
+                x: {
+                    type: 'realtime',
+                    realtime: {
+                        duration: 20000,
+                        refresh: 1000,
+                        delay: 2000,
+                        onRefresh: fetchAndUpdateData
+                    }
+                },
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+
+    // Fetch and update data function
+    function fetchAndUpdateData(chart) {
+        database.once('value', (snapshot) => {
+            const data = snapshot.val();
+            const labels = Object.keys(data).map(timestamp => formatTime(timestamp));
+            const values = Object.values(data);
+
+            chart.data.labels = labels;
+            chart.data.datasets[0].data = values;
+
+            chart.update();
+        });
+    }
+
+    // Format timestamp to time string
+    function formatTime(timestamp) {
+        const date = new Date(parseInt(timestamp));
+        return `${date.getHours()}:${date.getMinutes()}:${date.getSeconds()}`;
+    }
+</script>
+
+</body>
+</html>
