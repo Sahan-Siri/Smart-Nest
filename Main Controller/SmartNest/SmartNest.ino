@@ -5,14 +5,13 @@
 
 #define Button 15
 #define EEPROM_SIZE 512 // Define EEPROM size
-#define EMAIL_ADDRESS 0 // EEPROM address to store the Email
-#define LOCATION_ADDRESS 100 // EEPROM address to store the Location
-#define SOCKET_ADDRESS 200 // EEPROM address to store the Socket
+#define PATH_ADDRESS 0 // EEPROM address to store the Path
 
 WiFiManager wm;
 String Email;
 String Location;
 String Socket;
+String Path;
 
 volatile bool resetFlag = false;
 
@@ -47,10 +46,7 @@ void setup() {
   EEPROM.begin(EEPROM_SIZE); // Initialize EEPROM
 
   // Retrieve stored variables from EEPROM
-  Email = readStringFromEEPROM(EMAIL_ADDRESS);
-  Location = readStringFromEEPROM(LOCATION_ADDRESS);
-  Socket = readStringFromEEPROM(SOCKET_ADDRESS);
-
+  Path=readStringFromEEPROM(PATH_ADDRESS);
   wm.setDebugOutput(false);
 
   WiFiManagerParameter Email_Box("Email", "Enter your E-mail here", "", 50);
@@ -68,23 +64,25 @@ void setup() {
   }
 
   // Save parameters if they are empty
-  if (Email == "") {
+  if (Path == "") {
     Email = Email_Box.getValue();
+    Location = Location_Box.getValue();
+    Socket = Name_Box.getValue();
+
     int atIndex = Email.indexOf('@');
     if (atIndex != -1) {
       Email = Email.substring(0, atIndex);
     }
-    saveStringToEEPROM(EMAIL_ADDRESS, Email);
-  }
-
-  if (Location == "") {
-    Location = Location_Box.getValue();
-    saveStringToEEPROM(LOCATION_ADDRESS, Location);
-  }
-
-  if (Socket == "") {
-    Socket = Name_Box.getValue();
-    saveStringToEEPROM(SOCKET_ADDRESS, Socket);
+    atIndex = Location.indexOf(' ');
+    if (atIndex != -1) {
+      Location = Location.substring(0, atIndex);
+    }
+    atIndex = Socket.indexOf(' ');
+    if (atIndex != -1) {
+      Socket = Socket.substring(0, atIndex);
+    }
+    Path=Email+"/"+Location+"/"+Socket;
+    saveStringToEEPROM(PATH_ADDRESS, Path);
   }
 }
 
@@ -93,12 +91,8 @@ void loop() {
     resetFlag = false; // Reset the flag
     Serial.println("Resetting WiFiManager settings...");
     wm.resetSettings();
-    Email = "";
-    Location = "";
-    Socket = "";
-    saveStringToEEPROM(EMAIL_ADDRESS, Email);
-    saveStringToEEPROM(LOCATION_ADDRESS, Location);
-    saveStringToEEPROM(SOCKET_ADDRESS, Socket);
+    Path = "";
+    saveStringToEEPROM(PATH_ADDRESS, Path);
     digitalWrite(2, LOW);
     delay(1000); // Delay to ensure settings are reset before restarting
     ESP.restart();
@@ -109,9 +103,6 @@ void loop() {
   } else {
     digitalWrite(2, LOW);
   }
-
-  Serial.println(Email);
-  Serial.println(Location);
-  Serial.println(Socket);
+  Serial.println(Path);
   delay(1000); // Small delay to avoid flooding the Serial output
 }
