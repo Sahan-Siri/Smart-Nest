@@ -6,30 +6,35 @@
 #define Button 15
 #define EEPROM_SIZE 512 // Define EEPROM size
 #define EMAIL_ADDRESS 0 // EEPROM address to store the Email
+#define LOCATION_ADDRESS 100 // EEPROM address to store the Location
+#define SOCKET_ADDRESS 200 // EEPROM address to store the Socket
 
 WiFiManager wm;
 String Email;
+String Location;
+String Socket;
+
 volatile bool resetFlag = false;
 
 void IRAM_ATTR Reset() {
   resetFlag = true;
 }
 
-void saveEmailToEEPROM(String email) {
-  for (int i = 0; i < email.length(); ++i) {
-    EEPROM.write(EMAIL_ADDRESS + i, email[i]);
+void saveStringToEEPROM(int address, String data) {
+  for (int i = 0; i < data.length(); ++i) {
+    EEPROM.write(address + i, data[i]);
   }
-  EEPROM.write(EMAIL_ADDRESS + email.length(), '\0'); // Add null terminator
+  EEPROM.write(address + data.length(), '\0'); // Add null terminator
   EEPROM.commit(); // Save changes to EEPROM
 }
 
-String readEmailFromEEPROM() {
-  char email[50]; // Adjust size as needed
+String readStringFromEEPROM(int address) {
+  char data[50]; // Adjust size as needed
   for (int i = 0; i < 50; ++i) {
-    email[i] = EEPROM.read(EMAIL_ADDRESS + i);
-    if (email[i] == '\0') break; // Stop reading if null terminator is encountered
+    data[i] = EEPROM.read(address + i);
+    if (data[i] == '\0') break; // Stop reading if null terminator is encountered
   }
-  return String(email);
+  return String(data);
 }
 
 void setup() {
@@ -41,29 +46,46 @@ void setup() {
 
   EEPROM.begin(EEPROM_SIZE); // Initialize EEPROM
 
-  // Retrieve stored email from EEPROM
-  Email = readEmailFromEEPROM();
+  // Retrieve stored variables from EEPROM
+  Email = readStringFromEEPROM(EMAIL_ADDRESS);
+  Location = readStringFromEEPROM(LOCATION_ADDRESS);
+  Socket = readStringFromEEPROM(SOCKET_ADDRESS);
+
   wm.setDebugOutput(false);
 
-  WiFiManagerParameter custom_text_box("Email", "Enter your E-mail here", "", 50);
-  wm.addParameter(&custom_text_box);
+  WiFiManagerParameter Email_Box("Email", "Enter your E-mail here", "", 50);
+  WiFiManagerParameter Location_Box("Location", "Location Name", "", 50);
+  WiFiManagerParameter Name_Box("Name", "Name the Socket", "", 50);
+  wm.addParameter(&Email_Box);
+  wm.addParameter(&Location_Box);
+  wm.addParameter(&Name_Box);
   
   bool res = wm.autoConnect("SmartNest", "password"); // Password protected AP
-
   if (!res) {
     Serial.println("Failed to connect");
   } else {
     Serial.println("Connected... yeey :)");
   }
 
-  if (Email==""){
-    Email = custom_text_box.getValue();
+  // Save parameters if they are empty
+  if (Email == "") {
+    Email = Email_Box.getValue();
     int atIndex = Email.indexOf('@');
     if (atIndex != -1) {
       Email = Email.substring(0, atIndex);
-      }
-      saveEmailToEEPROM(Email);
     }
+    saveStringToEEPROM(EMAIL_ADDRESS, Email);
+  }
+
+  if (Location == "") {
+    Location = Location_Box.getValue();
+    saveStringToEEPROM(LOCATION_ADDRESS, Location);
+  }
+
+  if (Socket == "") {
+    Socket = Name_Box.getValue();
+    saveStringToEEPROM(SOCKET_ADDRESS, Socket);
+  }
 }
 
 void loop() {
@@ -71,8 +93,12 @@ void loop() {
     resetFlag = false; // Reset the flag
     Serial.println("Resetting WiFiManager settings...");
     wm.resetSettings();
-    Email="";
-    saveEmailToEEPROM(Email);
+    Email = "";
+    Location = "";
+    Socket = "";
+    saveStringToEEPROM(EMAIL_ADDRESS, Email);
+    saveStringToEEPROM(LOCATION_ADDRESS, Location);
+    saveStringToEEPROM(SOCKET_ADDRESS, Socket);
     digitalWrite(2, LOW);
     delay(1000); // Delay to ensure settings are reset before restarting
     ESP.restart();
@@ -85,5 +111,7 @@ void loop() {
   }
 
   Serial.println(Email);
+  Serial.println(Location);
+  Serial.println(Socket);
   delay(1000); // Small delay to avoid flooding the Serial output
 }
