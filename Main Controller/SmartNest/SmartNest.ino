@@ -156,10 +156,5 @@ void loop() {
     digitalWrite(2, LOW);
   }
   Serial.println(Path);
-  if (Firebase.ready() && signupOK && (millis() - sendDataPrevMillis > 15000 || sendDataPrevMillis == 0)){
-    sendDataPrevMillis = millis();
-    Firebase.RTDB.setFloat(&fbdo, Path + "/Power", data.power);
-    Firebase.RTDB.setFloat(&fbdo, Path + "/Voltage", data.voltage);
-    Firebase.RTDB.setFloat(&fbdo, Path + "/Current", data.current);
-  }
+  
 }
