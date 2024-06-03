@@ -1,17 +1,30 @@
-#include <FS.h>
 #include <WiFiManager.h> // https://github.com/tzapu/WiFiManager
-#include <WiFi.h>
 #include <EEPROM.h> // Include EEPROM library
+#include <Firebase_ESP_Client.h>
+#include "addons/TokenHelper.h"
+#include "addons/RTDBHelper.h"
+
 
 #define Button 15
 #define EEPROM_SIZE 512 // Define EEPROM size
 #define PATH_ADDRESS 0 // EEPROM address to store the Path
+#define API_KEY "AIzaSyAKF2apBkqBW3pKeMt0GMj2MXmkSoebQks"
+#define DATABASE_URL "https://smartnest0-default-rtdb.firebaseio.com/" 
 
 WiFiManager wm;
 String Email;
 String Location;
 String Socket;
 String Path;
+
+FirebaseData fbdo;
+FirebaseAuth auth;
+FirebaseConfig config;
+
+unsigned long sendDataPrevMillis = 0;
+int count = 0;
+bool signupOK = false;
+String uid;
 
 volatile bool resetFlag = false;
 
@@ -81,9 +94,23 @@ void setup() {
     if (atIndex != -1) {
       Socket = Socket.substring(0, atIndex);
     }
-    Path=Email+"/"+Location+"/"+Socket;
+    Path=Email+"/"+Location+" "+Socket;
     saveStringToEEPROM(PATH_ADDRESS, Path);
   }
+  config.api_key = API_KEY;
+  auth.user.email = "Device01@smartnest.com";
+  auth.user.password = "Smart@1234";
+  /* Assign the RTDB URL (required) */
+  config.database_url = DATABASE_URL;
+  uid = auth.token.uid.c_str();
+ // Serial.println(uid);
+  Firebase.begin(&config, &auth);
+  uid = auth.token.uid.c_str();
+  //Serial.print("User UID: ");
+  //Serial.println(uid);
+  signupOK = true;
+  config.token_status_callback = tokenStatusCallback; //see addons/TokenHelper.h
+  Firebase.reconnectWiFi(true);
 }
 
 void loop() {
@@ -104,5 +131,14 @@ void loop() {
     digitalWrite(2, LOW);
   }
   Serial.println(Path);
-  delay(1000); // Small delay to avoid flooding the Serial output
+  if (Firebase.ready() && signupOK && (millis() - sendDataPrevMillis > 15000 || sendDataPrevMillis == 0)){
+    sendDataPrevMillis = millis();
+    // Write an Int number on the database path test/int
+    if (Firebase.RTDB.setFloat(&fbdo, Path+"/Power",int(0.01+random(5,25)))){
+    }
+    if (Firebase.RTDB.setFloat(&fbdo, Path+"/Voltage",int( 0.01 + random(228,235)))){
+    }
+    if (Firebase.RTDB.setFloat(&fbdo, Path+"/Current",int( 0.01 + random(1,5)))){
+    }
+  }
 }
