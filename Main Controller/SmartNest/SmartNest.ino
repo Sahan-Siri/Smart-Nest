@@ -24,13 +24,6 @@ unsigned long sendDataPrevMillis = 0;
 bool signupOK = false;
 
 volatile bool resetFlag = false;
-QueueHandle_t dataQueue;
-
-struct SensorData {
-  float power;
-  float voltage;
-  float current;
-};
 
 void IRAM_ATTR Reset() {
   resetFlag = true;
@@ -54,10 +47,8 @@ String readStringFromEEPROM(int address) {
 }
 
 void firebaseTask(void *pvParameters) {
-  SensorData data;
   while (true) {
     if (Firebase.ready() && signupOK) {
-      // Reading the switch value from Firebase
       if (Firebase.RTDB.getString(&fbdo, Path + "/Switch")) {
         String switchValue = fbdo.stringData();
         switchValue = switchValue.substring(2, switchValue.length() - 2);
@@ -67,26 +58,8 @@ void firebaseTask(void *pvParameters) {
           digitalWrite(22, LOW);
         }
       }
-
-      // Check for data in the queue and write to Firebase
-      if (xQueueReceive(dataQueue, &data, portMAX_DELAY) == pdPASS) {
-        Firebase.RTDB.setFloat(&fbdo, Path + "/Power", data.power);
-        Firebase.RTDB.setFloat(&fbdo, Path + "/Voltage", data.voltage);
-        Firebase.RTDB.setFloat(&fbdo, Path + "/Current", data.current);
-      }
     }
     vTaskDelay(1000 / portTICK_PERIOD_MS); // Delay for 1 second
-  }
-}
-
-void generateDataTask(void *pvParameters) {
-  SensorData data;
-  while (true) {
-    data.power = int(0.01 + random(5, 25));
-    data.voltage = int(0.01 + random(228, 235));
-    data.current = int(0.01 + random(1, 5));
-    xQueueSend(dataQueue, &data, portMAX_DELAY);
-    vTaskDelay(15000 / portTICK_PERIOD_MS); // Delay for 15 seconds
   }
 }
 
@@ -154,26 +127,14 @@ void setup() {
   Firebase.begin(&config, &auth);
   Firebase.reconnectWiFi(true);
 
-  dataQueue = xQueueCreate(10, sizeof(SensorData));
-
   xTaskCreatePinnedToCore(
     firebaseTask,      // Function to be called
     "Firebase Task",   // Name of the task
-    20000,             // Stack size (bytes)
+    10000,             // Stack size (bytes)
     NULL,              // Parameter to pass
     1,                 // Task priority
     NULL,              // Task handle
     0                  // Core where the task should run
-  );
-
-  xTaskCreatePinnedToCore(
-    generateDataTask,  // Function to be called
-    "Generate Data Task", // Name of the task
-    2000,              // Stack size (bytes)
-    NULL,              // Parameter to pass
-    1,                 // Task priority
-    NULL,              // Task handle
-    1                  // Core where the task should run
   );
 }
 
@@ -195,4 +156,10 @@ void loop() {
     digitalWrite(2, LOW);
   }
   Serial.println(Path);
+  if (Firebase.ready() && signupOK && (millis() - sendDataPrevMillis > 15000 || sendDataPrevMillis == 0)){
+    sendDataPrevMillis = millis();
+    Firebase.RTDB.setFloat(&fbdo, Path + "/Power", data.power);
+    Firebase.RTDB.setFloat(&fbdo, Path + "/Voltage", data.voltage);
+    Firebase.RTDB.setFloat(&fbdo, Path + "/Current", data.current);
+  }
 }
