@@ -132,7 +132,7 @@ void setup() {
     "Firebase Task",   // Name of the task
     10000,             // Stack size (bytes)
     NULL,              // Parameter to pass
-    1,                 // Task priority
+    2,                 // Task priority
     NULL,              // Task handle
     0                  // Core where the task should run
   );
