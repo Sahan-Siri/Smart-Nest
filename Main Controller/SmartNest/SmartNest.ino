@@ -6,7 +6,7 @@
 
 
 #define Button 15
-#define EEPROM_SIZE 512 // Define EEPROM size
+#define EEPROM_SIZE 64 // Define EEPROM size
 #define PATH_ADDRESS 0 // EEPROM address to store the Path
 #define API_KEY "AIzaSyAKF2apBkqBW3pKeMt0GMj2MXmkSoebQks"
 #define DATABASE_URL "https://smartnest0-default-rtdb.firebaseio.com/" 
@@ -22,9 +22,7 @@ FirebaseAuth auth;
 FirebaseConfig config;
 
 unsigned long sendDataPrevMillis = 0;
-int count = 0;
 bool signupOK = false;
-String uid;
 
 volatile bool resetFlag = false;
 
@@ -53,6 +51,8 @@ void setup() {
   pinMode(Button, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(Button), Reset, FALLING); // Use FALLING for INPUT_PULLUP
   pinMode(2, OUTPUT);
+  pinMode(22, OUTPUT);
+  pinMode(23,INPUT);
   Serial.begin(115200);
   WiFi.mode(WIFI_STA); // Explicitly set mode, ESP defaults to STA+AP
 
@@ -77,7 +77,7 @@ void setup() {
   }
 
   // Save parameters if they are empty
-  if (Path == "") {
+  if (Path == "/0") {
     Email = Email_Box.getValue();
     Location = Location_Box.getValue();
     Socket = Name_Box.getValue();
@@ -102,15 +102,12 @@ void setup() {
   auth.user.password = "Smart@1234";
   /* Assign the RTDB URL (required) */
   config.database_url = DATABASE_URL;
-  uid = auth.token.uid.c_str();
- // Serial.println(uid);
   Firebase.begin(&config, &auth);
-  uid = auth.token.uid.c_str();
-  //Serial.print("User UID: ");
-  //Serial.println(uid);
+
   signupOK = true;
   config.token_status_callback = tokenStatusCallback; //see addons/TokenHelper.h
   Firebase.reconnectWiFi(true);
+
 }
 
 void loop() {
@@ -118,7 +115,7 @@ void loop() {
     resetFlag = false; // Reset the flag
     Serial.println("Resetting WiFiManager settings...");
     wm.resetSettings();
-    Path = "";
+    Path = "/0";
     saveStringToEEPROM(PATH_ADDRESS, Path);
     digitalWrite(2, LOW);
     delay(1000); // Delay to ensure settings are reset before restarting
@@ -131,14 +128,22 @@ void loop() {
     digitalWrite(2, LOW);
   }
   Serial.println(Path);
-  if (Firebase.ready() && signupOK && (millis() - sendDataPrevMillis > 15000 || sendDataPrevMillis == 0)){
-    sendDataPrevMillis = millis();
-    // Write an Int number on the database path test/int
-    if (Firebase.RTDB.setFloat(&fbdo, Path+"/Power",int(0.01+random(5,25)))){
+  if (Firebase.ready() && signupOK) {
+    if (Firebase.RTDB.getString(&fbdo, Path + "/Switch")) {
+      String switchValue = fbdo.stringData();
+      switchValue = switchValue.substring(2, switchValue.length() - 2); // Remove extra quotes
+      Serial.println("Switch Value: " + switchValue);
+      if (switchValue == "On") {
+        digitalWrite(22, HIGH);
+      } else {
+        digitalWrite(22, LOW);
+      }
     }
-    if (Firebase.RTDB.setFloat(&fbdo, Path+"/Voltage",int( 0.01 + random(228,235)))){
-    }
-    if (Firebase.RTDB.setFloat(&fbdo, Path+"/Current",int( 0.01 + random(1,5)))){
+    if (millis() - sendDataPrevMillis > 15000 || sendDataPrevMillis == 0) {
+      sendDataPrevMillis = millis();
+      Firebase.RTDB.setFloat(&fbdo, Path + "/Power", int(0.01 + random(5, 25)));
+      Firebase.RTDB.setFloat(&fbdo, Path + "/Voltage", int(0.01 + random(228, 235)));
+      Firebase.RTDB.setFloat(&fbdo, Path + "/Current", int(0.01 + random(1, 5)));
     }
   }
 }
