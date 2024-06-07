@@ -10,12 +10,7 @@
 #define API_KEY "AIzaSyAKF2apBkqBW3pKeMt0GMj2MXmkSoebQks"
 #define DATABASE_URL "https://smartnest0-default-rtdb.firebaseio.com/" 
 
-WiFiManager wm;
-String Email;
-String Location;
-String Socket;
-String Path;
-
+char Path[100];
 FirebaseData fbdo;
 FirebaseAuth auth;
 FirebaseConfig config;
@@ -29,52 +24,31 @@ void IRAM_ATTR Reset() {
   resetFlag = true;
 }
 
-void saveStringToEEPROM(int address, String data) {
-  for (int i = 0; i < data.length(); ++i) {
+void saveStringToEEPROM(int address, const char* data) {
+  for (int i = 0; i < strlen(data); ++i) {
     EEPROM.write(address + i, data[i]);
   }
-  EEPROM.write(address + data.length(), '\0');
+  EEPROM.write(address + strlen(data), '\0');
   EEPROM.commit();
 }
 
-String readStringFromEEPROM(int address) {
-  char data[50];
+void readStringFromEEPROM(int address, char* data) {
   for (int i = 0; i < 50; ++i) {
     data[i] = EEPROM.read(address + i);
     if (data[i] == '\0') break;
-  }
-  return String(data);
-}
-
-void firebaseTask(void *pvParameters) {
-  while (true) {
-    if (Firebase.ready() && signupOK) {
-      if (Firebase.RTDB.getString(&fbdo, Path + "/Switch")) {
-        String switchValue = fbdo.stringData();
-        switchValue = switchValue.substring(2, switchValue.length() - 2);
-        if (switchValue == "On") {
-          digitalWrite(22, HIGH);
-        } else {
-          digitalWrite(22, LOW);
-        }
-      }
-    }
-    vTaskDelay(1000 / portTICK_PERIOD_MS); // Delay for 1 second
   }
 }
 
 void setup() {
   pinMode(Button, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(Button), Reset, FALLING);
-  pinMode(2, OUTPUT);
   pinMode(22, OUTPUT);
-  pinMode(23, INPUT);
+  pinMode(2, OUTPUT);
   Serial.begin(115200);
   WiFi.mode(WIFI_STA);
 
   EEPROM.begin(EEPROM_SIZE);
-
-  Path = readStringFromEEPROM(PATH_ADDRESS);
+  WiFiManager wm;
   wm.setDebugOutput(false);
 
   WiFiManagerParameter Email_Box("Email", "Enter your E-mail here", "", 50);
@@ -90,60 +64,50 @@ void setup() {
   } else {
     Serial.println("Connected... yeey :)");
   }
+  readStringFromEEPROM(PATH_ADDRESS, Path);
+  if (strcmp(Path, "/0") == 0) {
+    char Email[50];
+    char Location[50];
+    char Socket[50];
+    strncpy(Email, Email_Box.getValue(), sizeof(Email) - 1);
+    strncpy(Location, Location_Box.getValue(), sizeof(Location) - 1);
+    strncpy(Socket, Name_Box.getValue(), sizeof(Socket) - 1);
 
-  if (Path == "/0") {
-    Email = Email_Box.getValue();
-    Location = Location_Box.getValue();
-    Socket = Name_Box.getValue();
-
-    int atIndex = Email.indexOf('@');
-    if (atIndex != -1) {
-      Email = Email.substring(0, atIndex);
+    int atIndex = strcspn(Email, "@");
+    if (atIndex != strlen(Email)) {
+      Email[atIndex] = '\0';
     }
-    atIndex = Location.indexOf(' ');
-    if (atIndex != -1) {
-      Location = Location.substring(0, atIndex);
+    atIndex = strcspn(Location, " ");
+    if (atIndex != strlen(Location)) {
+      Location[atIndex] = '\0';
     }
-    atIndex = Socket.indexOf(' ');
-    if (atIndex != -1) {
-      Socket = Socket.substring(0, atIndex);
+    atIndex = strcspn(Socket, " ");
+    if (atIndex != strlen(Socket)) {
+      Socket[atIndex] = '\0';
     }
-    Path = Email + "/" + Location + " " + Socket;
+    snprintf(Path, sizeof(Path), "%s/%s %s", Email, Location, Socket);
     saveStringToEEPROM(PATH_ADDRESS, Path);
   }
 
   config.api_key = API_KEY;
+  auth.user.email = "Device01@smartnest.com";
+  auth.user.password = "Smart@1234";
   config.database_url = DATABASE_URL;
-
-  if (Firebase.signUp(&config, &auth, "", "")) {
-    Serial.println("ok");
-    signupOK = true;
-  } else {
-    Serial.printf("%s\n", config.signer.signupError.message.c_str());
-  }
 
   config.token_status_callback = tokenStatusCallback;
 
   Firebase.begin(&config, &auth);
   Firebase.reconnectWiFi(true);
-
-  xTaskCreatePinnedToCore(
-    firebaseTask,      // Function to be called
-    "Firebase Task",   // Name of the task
-    10000,             // Stack size (bytes)
-    NULL,              // Parameter to pass
-    2,                 // Task priority
-    NULL,              // Task handle
-    0                  // Core where the task should run
-  );
+  signupOK = true;
 }
 
 void loop() {
   if (resetFlag) {
     resetFlag = false;
     Serial.println("Resetting WiFiManager settings...");
+    WiFiManager wm;
     wm.resetSettings();
-    Path = "/0";
+    strcpy(Path, "/0");
     saveStringToEEPROM(PATH_ADDRESS, Path);
     digitalWrite(2, LOW);
     delay(1000);
@@ -155,6 +119,15 @@ void loop() {
   } else {
     digitalWrite(2, LOW);
   }
-  Serial.println(Path);
-  
+  Serial.println(F(Path));
+
+  if (Firebase.ready() && signupOK && (millis() - sendDataPrevMillis > 15000 || sendDataPrevMillis == 0)) {
+    sendDataPrevMillis = millis();
+    Firebase.RTDB.setFloat(&fbdo, String(Path) + "/Power", int(0.01 + random(5, 25)));
+    Firebase.RTDB.setFloat(&fbdo, String(Path) + "/Voltage", int(0.01 + random(228, 235)));
+    Firebase.RTDB.setFloat(&fbdo, String(Path) + "/Current", int(0.01 + random(1, 13)));
+    fbdo.clear();
+  }
+
+  Serial.println(F(ESP.getFreeHeap()));
 }
