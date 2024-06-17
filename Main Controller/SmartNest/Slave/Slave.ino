@@ -12,6 +12,7 @@
 #define DATABASE_URL "https://smartnest0-default-rtdb.firebaseio.com/"
 
 String Path;
+String Old="Off";
 FirebaseData fbdo;
 FirebaseAuth auth;
 FirebaseConfig config;
@@ -45,6 +46,10 @@ String readStringFromEEPROM(int address) {
     if (data[i] == '\0') break;
   }
   return String(data);
+}
+
+float roundToTwoDecimalPlaces(float value) {
+  return roundf(value * 100.0) / 100.0;
 }
 
 void setup() {
@@ -132,11 +137,19 @@ void loop() {
       String switchValue = fbdo.stringData();
       switchValue = switchValue.substring(2, switchValue.length() - 2);
       Serial.println(switchValue);
-      if (switchValue == "On") {
+      if ((switchValue == "On") && (switchValue!=Old)) {
         digitalWrite(4, HIGH);
-      } else {
+        delay(100);
         digitalWrite(4, LOW);
+        Old=switchValue;
+      } 
+      if ((switchValue == "Off") && (switchValue!=Old)) {
+        digitalWrite(4, HIGH);
+        delay(100);
+        digitalWrite(4, LOW);
+        Old=switchValue;
       }
+       
     } else {
       Serial.println("Failed to get switch value: " + fbdo.errorReason());
       ESP.restart();
@@ -144,21 +157,34 @@ void loop() {
 
     if (millis() - sendDataPrevMillis > 15000 || sendDataPrevMillis == 0) {
       sendDataPrevMillis = millis();
-      if (Firebase.RTDB.setFloat(&fbdo, Path + "/Power", number1)) {
+      float roundedNumber1 = roundToTwoDecimalPlaces(number1);
+      float roundedNumber2 = roundToTwoDecimalPlaces(number2);
+      float roundedNumber3 = roundToTwoDecimalPlaces(number3);
+
+      if (Old=="Off"){
+        roundedNumber1=0.00;
+        roundedNumber2=0.00;
+        roundedNumber3=0.00;
+      }
+
+      if (Firebase.RTDB.setFloat(&fbdo, Path + "/Power", roundedNumber1)) {
+        Serial.println(roundedNumber1);
         Serial.println("Power value set successfully");
       } else {
         Serial.println("Failed to set Power value: " + fbdo.errorReason());
         ESP.restart();
       }
 
-      if (Firebase.RTDB.setFloat(&fbdo, Path + "/Voltage", number2)) {
+      if (Firebase.RTDB.setFloat(&fbdo, Path + "/Voltage", roundedNumber2)) {
+        Serial.println(roundedNumber2);
         Serial.println("Voltage value set successfully");
       } else {
         Serial.println("Failed to set Voltage value: " + fbdo.errorReason());
         ESP.restart();
       }
 
-      if (Firebase.RTDB.setFloat(&fbdo, Path + "/Current", number3)) {
+      if (Firebase.RTDB.setFloat(&fbdo, Path + "/Current", roundedNumber3)) {
+        Serial.println(roundedNumber3);
         Serial.println("Current value set successfully");
       } else {
         Serial.println("Failed to set Current value: " + fbdo.errorReason());

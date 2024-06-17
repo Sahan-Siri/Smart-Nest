@@ -9,7 +9,7 @@ void setup() {
   Wire.begin(); // Join I2C bus as master
   Serial.begin(115200); // Start the serial communication
   emon1.voltage(1, 234.26, 1.7);  // Voltage: input pin, calibration, phase_shift
-  emon1.current(0, 4.5);       // Current: input pin, calibration.
+  emon1.current(A0,3.3);       // Current: input pin, calibration.
   delay(1000); // Give some time for the receiver to set up
 }
 
@@ -26,8 +26,13 @@ void loop() {
   Serial.println(Irms);
   Serial.print("Power:");
   Serial.println(realPower);
-
-  numbers[0] = roundf(realPower * 100) / 100.0;
+  if (supplyVoltage<=10){
+    supplyVoltage=0.00;
+  }
+  if (Irms<=0.11){
+    Irms=0.00;
+  }
+  numbers[0] = roundf(realPower * 100) / 100000.0;
   numbers[1] = roundf(supplyVoltage * 100) / 100.0;
   numbers[2] = roundf(Irms * 100) / 100.0;
   
