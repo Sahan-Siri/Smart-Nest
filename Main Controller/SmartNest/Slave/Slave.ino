@@ -5,7 +5,7 @@
 #include "addons/TokenHelper.h"
 #include "addons/RTDBHelper.h"
 
-#define Button 15
+#define Button 7
 #define EEPROM_SIZE 100
 #define PATH_ADDRESS 0
 #define API_KEY "AIzaSyAKF2apBkqBW3pKeMt0GMj2MXmkSoebQks"
@@ -26,9 +26,18 @@ unsigned long sendDataPrevMillis = 0;
 bool signupOK = false;
 
 volatile bool resetFlag = false;
+unsigned long buttonPressTime = 0;
+bool buttonPressed = false;
 
-void IRAM_ATTR Reset() {
-  resetFlag = true;
+void IRAM_ATTR handleButtonPress() {
+  if (digitalRead(Button) == LOW) { // Button is pressed
+    if (!buttonPressed) {
+      buttonPressed = true;
+      buttonPressTime = millis();
+    }
+  } else { // Button is released
+    buttonPressed = false;
+  }
 }
 
 void saveStringToEEPROM(int address, String data) {
@@ -54,9 +63,10 @@ float roundToTwoDecimalPlaces(float value) {
 
 void setup() {
   pinMode(Button, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(Button), Reset, FALLING);
-  pinMode(4, OUTPUT);
-  pinMode(2, OUTPUT);
+  attachInterrupt(digitalPinToInterrupt(Button), handleButtonPress, CHANGE);
+  pinMode(6, OUTPUT);
+  pinMode(5, OUTPUT);
+  pinMode(10, INPUT);
   Serial.begin(115200);
   WiFi.mode(WIFI_STA);
 
@@ -111,42 +121,63 @@ void setup() {
   signupOK = true;
   Wire.begin(8); // Join I2C bus with address #8
   Wire.onReceive(receiveEvent); // Register event
+  if (digitalRead(10)==0){
+    Firebase.RTDB.setString(&fbdo, Path + "/Switch","On");
+    Old="On";
+  }
+  if (digitalRead(10)==1){
+    Firebase.RTDB.setString(&fbdo, Path + "/Switch","Off");
+    Old="Off";
+  }
 }
 
 void loop() {
+  if (buttonPressed && (millis() - buttonPressTime >= 3000)) {
+    resetFlag = true;
+    buttonPressed = false;
+  }
+
   if (resetFlag) {
     resetFlag = false;
     Serial.println("Resetting WiFiManager settings...");
     wm.resetSettings();
     Path = "/0";
     saveStringToEEPROM(PATH_ADDRESS, Path);
-    digitalWrite(2, LOW);
+    digitalWrite(6, LOW);
     delay(1000);
     ESP.restart();
   }
 
   if (WiFi.isConnected()) {
-    digitalWrite(2, HIGH);
+    digitalWrite(6, HIGH);
   } else {
-    digitalWrite(2, LOW);
+    digitalWrite(6, LOW);
   }
   Serial.println(Path);
 
   if (Firebase.ready() && signupOK) {
+    if (Old=="On" && digitalRead(10)==1){
+      Firebase.RTDB.setString(&fbdo, Path + "/Switch","Off");
+      Old="Off";
+    }
+    if (Old=="Off" && digitalRead(10)==0){
+      Firebase.RTDB.setString(&fbdo, Path + "/Switch","On");
+      Old="On";
+    }
     if (Firebase.RTDB.getString(&fbdo, Path + "/Switch")) {
       String switchValue = fbdo.stringData();
       switchValue = switchValue.substring(2, switchValue.length() - 2);
       Serial.println(switchValue);
-      if ((switchValue == "On") && (switchValue!=Old)) {
-        digitalWrite(4, HIGH);
+      if ((switchValue == "On") && (switchValue!=Old) && digitalRead(10)==1) {
+        digitalWrite(5, HIGH);
         delay(100);
-        digitalWrite(4, LOW);
+        digitalWrite(5, LOW);
         Old=switchValue;
       } 
-      if ((switchValue == "Off") && (switchValue!=Old)) {
-        digitalWrite(4, HIGH);
+      if ((switchValue == "Off") && (switchValue!=Old) && digitalRead(10)==0) {
+        digitalWrite(5, HIGH);
         delay(100);
-        digitalWrite(4, LOW);
+        digitalWrite(5, LOW);
         Old=switchValue;
       }
        
@@ -155,7 +186,7 @@ void loop() {
       ESP.restart();
     }
 
-    if (millis() - sendDataPrevMillis > 15000 || sendDataPrevMillis == 0) {
+    if (millis() - sendDataPrevMillis > 5000 || sendDataPrevMillis == 0) {
       sendDataPrevMillis = millis();
       float roundedNumber1 = roundToTwoDecimalPlaces(number1);
       float roundedNumber2 = roundToTwoDecimalPlaces(number2);

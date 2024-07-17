@@ -7,9 +7,9 @@ EnergyMonitor emon1;
 
 void setup() {
   Wire.begin(); // Join I2C bus as master
-  Serial.begin(115200); // Start the serial communication
-  emon1.voltage(1, 234.26, 1.7);  // Voltage: input pin, calibration, phase_shift
-  emon1.current(A0,3.3);       // Current: input pin, calibration.
+  Serial.begin(9600); // Start the serial communication
+  emon1.voltage(A1, 234.26, 1.7);  // Voltage: input pin, calibration, phase_shift
+  emon1.current(A0,10.005);       // Current: input pin, calibration.
   delay(1000); // Give some time for the receiver to set up
 }
 
