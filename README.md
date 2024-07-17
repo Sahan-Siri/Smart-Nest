@@ -1,7 +1,7 @@
 # Smart-Nest
 ## Undergraduate Product Designing Project
-![WhatsApp Image 2024-07-17 at 21 12 16](https://github.com/user-attachments/assets/8f3eed51-2ae5-4335-9cd7-b298f5eb51fa)
 
+<img src="https://raw.githubusercontent.com/Sahan-Siri/Smart-Nest/main/Images/WhatsApp%20Image%202024-07-17%20at%2021.12.16.jpeg" width="700" height="500">
 
 ### Overview
 
