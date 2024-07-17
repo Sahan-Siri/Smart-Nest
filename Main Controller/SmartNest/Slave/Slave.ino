@@ -8,8 +8,8 @@
 #define Button 7
 #define EEPROM_SIZE 100
 #define PATH_ADDRESS 0
-#define API_KEY "AIzaSyAKF2apBkqBW3pKeMt0GMj2MXmkSoebQks"
-#define DATABASE_URL "https://smartnest0-default-rtdb.firebaseio.com/"
+#define API_KEY "AD API"
+#define DATABASE_URL "ADD URL"
 
 String Path;
 String Old="Off";
