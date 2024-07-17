@@ -1,6 +1,6 @@
 # Smart-Nest
 ## Undergraduate Product Designing Project
-![WhatsApp Image 2024-07-17 at 21 12 16](https://github.com/user-attachments/assets/8f3eed51-2ae5-4335-9cd7-b298f5eb51fa=250x250)
+![WhatsApp Image 2024-07-17 at 21 12 16](https://github.com/user-attachments/assets/8f3eed51-2ae5-4335-9cd7-b298f5eb51fa=250x250| width=100)
 
 
 ### Overview
